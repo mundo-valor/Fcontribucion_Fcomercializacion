@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Cálculo de Factores - Modelo Mandelblatt-Camacaro</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jstat/1.9.6/jstat.min.js"></script>
+    <style>
+        /* Estilos matemáticos para los encabezados */
+        .math-var { font-family: "Times New Roman", Times, serif; font-style: italic; font-size: 1rem; }
+        .math-unit { font-family: ui-sans-serif, system-ui, sans-serif; font-style: normal; font-size: 0.7rem; font-weight: 400; color: #475569; margin-top: 2px;}
+        th { vertical-align: middle; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans antialiased pb-20">
+
+    <header class="bg-gradient-to-r from-blue-950 via-indigo-900 to-slate-900 text-white shadow-xl mb-10">
+        <div class="max-w-7xl mx-auto px-4 py-12 sm:px-6 lg:px-8">
+            <div class="flex flex-col md:flex-row items-center justify-between gap-6 mb-8">
+                <div class="flex-shrink-0">
+                    <img src="Valuador Inteligente.png" alt="Valuador Inteligente" class="h-24 md:h-32 object-contain bg-white/10 rounded-full p-2 shadow-inner">
+                </div>
+                
+                <div class="text-center flex-grow">
+                    <h1 class="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight mb-4">
+                        Sistema de cálculo de factores
+                    </h1>
+                    <p class="max-w-4xl mx-auto text-slate-300 text-sm sm:text-base leading-relaxed">
+                        Procedimiento para determinar, a partir de una muestra de mercado inmobiliario, el factor de contribución de la tierra (C<sub>t</sub>) y el factor de comercialización inmobiliario (F<sub>c</sub>), útiles para la aplicación del Método Contributivo (Modelo Mandelblatt-Camacaro).
+                    </p>
+                </div>
+                
+                <div class="flex-shrink-0">
+                    <img src="LogoMCE.png" alt="Miguel Camacaro Ediciones" class="h-24 md:h-28 object-contain bg-white p-2 rounded-lg shadow-md">
+                </div>
+            </div>
+
+            <div class="bg-blue-900/50 border border-blue-500/30 rounded-xl p-6 text-center max-w-5xl mx-auto backdrop-blur-sm mb-6">
+                <h3 class="font-bold text-blue-200 mb-3"><i class="fa-solid fa-list-check mr-2"></i> Variables del Modelo</h3>
+                <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 text-xs text-slate-200 text-left mb-6 bg-slate-900/40 p-4 rounded-lg">
+                    <div><span class="font-bold text-blue-300">P<sub>i</sub>:</span> Precio del inmueble</div>
+                    <div><span class="font-bold text-blue-300">A<sub>t</sub>:</span> Área de terreno</div>
+                    <div><span class="font-bold text-blue-300">V<sub>ut</sub>:</span> Valor unitario del terreno</div>
+                    <div><span class="font-bold text-blue-300">A<sub>c</sub>:</span> Área de construcción</div>
+                    <div><span class="font-bold text-blue-300">C<sub>UC</sub>:</span> Costo unitario de construcción</div>
+                    <div><span class="font-bold text-blue-300">C<sub>H</sub>:</span> Coef. Heideck (decimales)</div>
+                    <div><span class="font-bold text-blue-300">r:</span> Factor rescate (decimales)</div>
+                    <div><span class="font-bold text-blue-300">e<sub>a</sub>:</span> Edad aparente (en años)</div>
+                    <div><span class="font-bold text-blue-300">v<sub>u</sub>:</span> Vida útil (en años)</div>
+                </div>
+
+                <h3 class="font-bold text-blue-200 mb-3"><i class="fa-solid fa-triangle-exclamation mr-2"></i> Estructura Requerida del Archivo Excel</h3>
+                <p class="text-sm text-slate-200 mb-4">
+                    Para asegurar el procesamiento correcto, tu archivo debe contener <strong>exclusivamente</strong> columnas de datos numéricos a partir de la primera columna (sin texto previo) en el siguiente orden estricto:<br>
+                    <span class="font-mono bg-slate-900 px-2 py-1 rounded text-blue-300 mt-2 inline-block">Pi | At | Vut | Ac | CUC | CH | r | ea | vu</span>
+                </p>
+                <div class="flex justify-center gap-4">
+                    <label class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg shadow-md cursor-pointer transition transform hover:-translate-y-0.5 border border-blue-500">
+                        <i class="fa-solid fa-file-excel mr-2"></i> Subir Archivo Ofertas.xlsx
+                        <input type="file" id="excelFile" accept=".xlsx, .xls" class="hidden" onchange="procesarMetodologiaCompleta(this)">
+                    </label>
+                </div>
+                <p class="text-xs text-slate-400 mt-3">* El sistema procesará un máximo de 30 ofertas.</p>
+            </div>
+        </div>
+    </header>
+
+    <main id="resultados" class="max-w-[95%] mx-auto px-4 sm:px-6 lg:px-8 space-y-12 hidden">
+        
+        <section class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+            <div class="bg-slate-100 border-b border-slate-200 px-6 py-4">
+                <h2 class="text-xl font-bold text-slate-800"><i class="fa-solid fa-table border-slate-400 mr-2 text-blue-600"></i> Tabla 1: Ofertas</h2>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-slate-200 text-sm text-center whitespace-nowrap">
+                    <thead class="bg-slate-50 text-slate-700 font-bold">
+                        <tr>
+                            <th class="py-3 px-3 border-r">Oferta Nº</th>
+                            <th class="py-3 px-3 border-r"><div class="math-var">P<sub>i</sub></div><div class="math-unit">(UM)</div></th>
+                            <th class="py-3 px-3 border-r"><div class="math-var">A<sub>t</sub></div><div class="math-unit">(m²)</div></th>
+                            <th class="py-3 px-3 border-r"><div class="math-var">V<sub>ut</sub></div><div class="math-unit">(UM/m²)</div></th>
+                            <th class="py-3 px-3 border-r"><div class="math-var">A<sub>c</sub></div><div class="math-unit">(m²)</div></th>
+                            <th class="py-3 px-3 border-r"><div class="math-var">C<sub>UC</sub></div><div class="math-unit">(UM/m²)</div></th>
+                            <th class="py-3 px-3 border-r"><div class="math-var">C<sub>H</sub></div><div class="math-unit">(adim)</div></th>
+                            <th class="py-3 px-3 border-r"><div class="math-var">r</div><div class="math-unit">(adim)</div></th>
+                            <th class="py-3 px-3 border-r"><div class="math-var">e<sub>a</sub></div><div class="math-unit">(años)</div></th>
+                            <th class="py-3 px-3"><div class="math-var">v<sub>u</sub></div><div class="math-unit">(años)</div></th>
+                        </tr>
+                    </thead>
+                    <tbody id="tabla1" class="divide-y divide-slate-200 text-slate-700 text-xs">
+                        </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+            <div class="bg-slate-100 border-b border-slate-200 px-6 py-4">
+                <h2 class="text-xl font-bold text-slate-800"><i class="fa-solid fa-calculator border-slate-400 mr-2 text-indigo-600"></i> Tabla 2: Factores F<sub>c</sub> y C<sub>t</sub></h2>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-slate-200 text-sm text-center whitespace-nowrap">
+                    <thead class="bg-indigo-50 text-indigo-900 font-bold">
+                        <tr>
+                            <th class="py-3 px-2 border-r">Nº</th>
+                            <th class="py-3 px-2 border-r"><div class="math-var">P<sub>i</sub></div><div class="math-unit">(UM)</div></th>
+                            <th class="py-3 px-2 border-r"><div class="math-var">A<sub>t</sub></div><div class="math-unit">(m²)</div></th>
+                            <th class="py-3 px-2 border-r"><div class="math-var">V<sub>ut</sub></div><div class="math-unit">(UM/m²)</div></th>
+                            <th class="py-3 px-2 border-r text-indigo-700"><div class="math-var">V<sub>t</sub></div><div class="math-unit">(UM)</div></th>
+                            <th class="py-3 px-2 border-r"><div class="math-var">A<sub>c</sub></div><div class="math-unit">(m²)</div></th>
+                            <th class="py-3 px-2 border-r"><div class="math-var">C<sub>UC</sub></div><div class="math-unit">(UM/m²)</div></th>
+                            <th class="py-3 px-2 border-r text-indigo-700"><div class="math-var">V<sub>C</sub></div><div class="math-unit">(UM)</div></th>
+                            <th class="py-3 px-2 border-r"><div class="math-var">C<sub>H</sub></div><div class="math-unit">(adim)</div></th>
+                            <th class="py-3 px-2 border-r"><div class="math-var">r</div><div class="math-unit">(adim)</div></th>
+                            <th class="py-3 px-2 border-r text-indigo-700"><div class="math-var">V<sub>r</sub></div><div class="math-unit">(UM)</div></th>
+                            <th class="py-3 px-2 border-r"><div class="math-var">e<sub>a</sub></div><div class="math-unit">(años)</div></th>
+                            <th class="py-3 px-2 border-r"><div class="math-var">v<sub>u</sub></div><div class="math-unit">(años)</div></th>
+                            <th class="py-3 px-2 border-r text-red-700"><div class="math-var">δ</div><div class="math-unit">(adim)</div></th>
+                            <th class="py-3 px-2 border-r text-red-700"><div class="math-var">Dep</div><div class="math-unit">(UM)</div></th>
+                            <th class="py-3 px-2 border-r text-blue-700"><div class="math-var">V<sub>c</sub></div><div class="math-unit">(UM)</div></th>
+                            <th class="py-3 px-2 border-r text-blue-900"><div class="math-var">V<sub>t</sub> + V<sub>c</sub></div><div class="math-unit">(UM)</div></th>
+                            <th class="py-3 px-2 border-r bg-emerald-100 text-emerald-900"><div class="math-var">F<sub>c</sub></div><div class="math-unit">(adim)</div></th>
+                            <th class="py-3 px-2 bg-emerald-100 text-emerald-900"><div class="math-var">C<sub>t</sub></div><div class="math-unit">(adim)</div></th>
+                        </tr>
+                    </thead>
+                    <tbody id="tabla2" class="divide-y divide-slate-200 text-slate-700 text-xs">
+                        </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="max-w-5xl mx-auto bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+            <div class="bg-slate-100 border-b border-slate-200 px-6 py-4">
+                <h2 class="text-xl font-bold text-slate-800"><i class="fa-solid fa-chart-bar border-slate-400 mr-2 text-emerald-600"></i> Tabla 3: Estadísticos</h2>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-slate-200 text-sm text-left">
+                    <thead class="bg-emerald-50 text-emerald-900 font-bold">
+                        <tr>
+                            <th class="py-4 px-6 border-r w-1/2">Estadísticos</th>
+                            <th class="py-4 px-6 border-r w-1/4 text-center"><div class="math-var">F<sub>c</sub></div><div class="math-unit">(adim)</div></th>
+                            <th class="py-4 px-6 w-1/4 text-center"><div class="math-var">C<sub>t</sub></div><div class="math-unit">(adim)</div></th>
+                        </tr>
+                    </thead>
+                    <tbody id="tabla3" class="divide-y divide-slate-200 text-slate-700">
+                        </tbody>
+                </table>
+            </div>
+        </section>
+
+    </main>
+
+    <script>
+        // Función para formatear números: 2 decimales obligatorios, punto para miles, coma para decimales (es-ES)
+        function formatNum(num) {
+            return parseFloat(num).toLocaleString('es-ES', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            });
+        }
+
+        function procesarMetodologiaCompleta(input) {
+            const file = input.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, {type: 'array'});
+                
+                // Forzamos a leer la hoja "Ofertas" o la primera hoja existente
+                const sheetName = workbook.SheetNames.includes('Ofertas') ? 'Ofertas' : workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[sheetName];
+                const filas = XLSX.utils.sheet_to_json(worksheet, {header: 1});
+                
+                let tb1 = document.getElementById('tabla1');
+                let tb2 = document.getElementById('tabla2');
+                tb1.innerHTML = '';
+                tb2.innerHTML = '';
+
+                let fc_array = [];
+                let ct_array = [];
+                let count = 0;
+
+                for (let i = 0; i < filas.length; i++) {
+                    if (count >= 30) break; // Límite de 30 ofertas
+
+                    let row = filas[i];
+                    let pi = parseFloat(row[0]);
+                    
+                    if (!isNaN(pi) && pi > 100) {
+                        count++;
+                        
+                        let at = parseFloat(row[1]) || 0;
+                        let vut = parseFloat(row[2]) || 0;
+                        let ac = parseFloat(row[3]) || 0;
+                        let cuc = parseFloat(row[4]) || 0;
+                        let ch = parseFloat(row[5]) || 0;
+                        let r = parseFloat(row[6]) || 0;
+                        let ea = parseFloat(row[7]) || 0;
+                        let vu = parseFloat(row[8]) || 60;
+                        
+                        // Fila en TABLA 1
+                        tb1.innerHTML += `
+                            <tr class="hover:bg-slate-50">
+                                <td class="py-2 px-2 border-r font-medium">${count}</td>
+                                <td class="py-2 px-2 border-r">${formatNum(pi)}</td>
+                                <td class="py-2 px-2 border-r">${formatNum(at)}</td>
+                                <td class="py-2 px-2 border-r">${formatNum(vut)}</td>
+                                <td class="py-2 px-2 border-r">${formatNum(ac)}</td>
+                                <td class="py-2 px-2 border-r">${formatNum(cuc)}</td>
+                                <td class="py-2 px-2 border-r">${formatNum(ch)}</td>
+                                <td class="py-2 px-2 border-r">${formatNum(r)}</td>
+                                <td class="py-2 px-2 border-r">${formatNum(ea)}</td>
+                                <td class="py-2 px-2">${formatNum(vu)}</td>
+                            </tr>
+                        `;
+
+                        // CÁLCULOS METODOLÓGICOS (Tabla 2)
+                        let vt = at * vut; 
+                        let vc = ac * cuc; 
+                        let vr = r * vc;   
+                        
+                        let ross = 0.5 * ((ea/vu) + Math.pow(ea/vu, 2));
+                        let delta = (1 - ross) * ch + ross; 
+                        
+                        let dep = (vc - vr) * delta; 
+                        let vc_act = vc - dep;       
+                        let vt_vc = vt + vc_act;     
+                        
+                        let fc = pi / vt_vc;         
+                        let ct = vt / pi;            
+
+                        fc_array.push(fc);
+                        ct_array.push(ct);
+
+                        // Fila en TABLA 2
+                        tb2.innerHTML += `
+                            <tr class="hover:bg-slate-50">
+                                <td class="py-2 px-2 border-r font-medium">${count}</td>
+                                <td class="py-2 px-2 border-r">${formatNum(pi)}</td>
+                                <td class="py-2 px-2 border-r">${formatNum(at)}</td>
+                                <td class="py-2 px-2 border-r">${formatNum(vut)}</td>
+                                <td class="py-2 px-2 border-r font-semibold text-indigo-700">${formatNum(vt)}</td>
+                                <td class="py-2 px-2 border-r">${formatNum(ac)}</td>
+                                <td class="py-2 px-2 border-r">${formatNum(cuc)}</td>
+                                <td class="py-2 px-2 border-r font-semibold text-indigo-700">${formatNum(vc)}</td>
+                                <td class="py-2 px-2 border-r">${formatNum(ch)}</td>
+                                <td class="py-2 px-2 border-r">${formatNum(r)}</td>
+                                <td class="py-2 px-2 border-r font-semibold text-indigo-700">${formatNum(vr)}</td>
+                                <td class="py-2 px-2 border-r">${formatNum(ea)}</td>
+                                <td class="py-2 px-2 border-r">${formatNum(vu)}</td>
+                                <td class="py-2 px-2 border-r text-red-600 font-semibold">${formatNum(delta)}</td>
+                                <td class="py-2 px-2 border-r text-red-600">${formatNum(dep)}</td>
+                                <td class="py-2 px-2 border-r font-semibold text-blue-700">${formatNum(vc_act)}</td>
+                                <td class="py-2 px-2 border-r font-bold text-blue-900">${formatNum(vt_vc)}</td>
+                                <td class="py-2 px-2 border-r font-bold bg-emerald-50 text-emerald-800">${formatNum(fc)}</td>
+                                <td class="py-2 px-2 font-bold bg-emerald-50 text-emerald-800">${formatNum(ct)}</td>
+                            </tr>
+                        `;
+                    }
+                }
+
+                // CÁLCULOS ESTADÍSTICOS (Tabla 3)
+                if (count > 0) {
+                    let meanFc = jStat.mean(fc_array);
+                    let meanCt = jStat.mean(ct_array);
+                    
+                    let stdFc = jStat.stdev(fc_array, true);
+                    let stdCt = jStat.stdev(ct_array, true);
+                    
+                    let cvFc = stdFc / meanFc;
+                    let cvCt = stdCt / meanCt;
+                    
+                    let n = count;
+                    let gl = n - 1;
+                    let alpha = 0.8;
+                    
+                    let t_val = jStat.studentt.inv(1 - (1 - alpha)/2, gl);
+                    
+                    let minFc = meanFc - t_val * (stdFc / Math.sqrt(n));
+                    let maxFc = meanFc + t_val * (stdFc / Math.sqrt(n));
+                    
+                    let minCt = meanCt - t_val * (stdCt / Math.sqrt(n));
+                    let maxCt = meanCt + t_val * (stdCt / Math.sqrt(n));
+
+                    let tb3 = document.getElementById('tabla3');
+                    tb3.innerHTML = `
+                        <tr class="hover:bg-slate-50">
+                            <td class="py-3 px-6 border-r font-medium text-slate-800">Promedio</td>
+                            <td class="py-3 px-6 border-r text-center">${formatNum(meanFc)}</td>
+                            <td class="py-3 px-6 text-center">${formatNum(meanCt)}</td>
+                        </tr>
+                        <tr class="hover:bg-slate-50">
+                            <td class="py-3 px-6 border-r font-medium text-slate-800">Desviación estándar</td>
+                            <td class="py-3 px-6 border-r text-center">${formatNum(stdFc)}</td>
+                            <td class="py-3 px-6 text-center">${formatNum(stdCt)}</td>
+                        </tr>
+                        <tr class="hover:bg-slate-50">
+                            <td class="py-3 px-6 border-r font-medium text-slate-800">Coeficiente de Variación</td>
+                            <td class="py-3 px-6 border-r text-center">${formatNum(cvFc)}</td>
+                            <td class="py-3 px-6 text-center">${formatNum(cvCt)}</td>
+                        </tr>
+                        <tr class="bg-slate-200">
+                            <td class="py-2 px-6 font-bold text-slate-700" colspan="3">Intervalos de confianza</td>
+                        </tr>
+                        <tr class="hover:bg-slate-50">
+                            <td class="py-3 px-6 border-r font-medium text-slate-800">Número de datos (n)</td>
+                            <td class="py-3 px-6 border-r text-center">${formatNum(n)}</td>
+                            <td class="py-3 px-6 text-center">${formatNum(n)}</td>
+                        </tr>
+                        <tr class="hover:bg-slate-50">
+                            <td class="py-3 px-6 border-r font-medium text-slate-800">Grados de libertad (gl)</td>
+                            <td class="py-3 px-6 border-r text-center">${formatNum(gl)}</td>
+                            <td class="py-3 px-6 text-center">${formatNum(gl)}</td>
+                        </tr>
+                        <tr class="hover:bg-slate-50">
+                            <td class="py-3 px-6 border-r font-medium text-slate-800">Nivel de confianza (α)</td>
+                            <td class="py-3 px-6 border-r text-center">${formatNum(alpha)}</td>
+                            <td class="py-3 px-6 text-center">${formatNum(alpha)}</td>
+                        </tr>
+                        <tr class="hover:bg-slate-50">
+                            <td class="py-3 px-6 border-r font-medium text-slate-800">t(1-α/2;gl)</td>
+                            <td class="py-3 px-6 border-r text-center">${formatNum(t_val)}</td>
+                            <td class="py-3 px-6 text-center">${formatNum(t_val)}</td>
+                        </tr>
+                        <tr class="bg-indigo-50">
+                            <td class="py-3 px-6 border-r font-bold text-indigo-900">Mínimo</td>
+                            <td class="py-3 px-6 border-r text-center font-bold text-indigo-700">${formatNum(minFc)}</td>
+                            <td class="py-3 px-6 text-center font-bold text-indigo-700">${formatNum(minCt)}</td>
+                        </tr>
+                        <tr class="bg-indigo-50">
+                            <td class="py-3 px-6 border-r font-bold text-indigo-900">Máximo</td>
+                            <td class="py-3 px-6 border-r text-center font-bold text-indigo-700">${formatNum(maxFc)}</td>
+                            <td class="py-3 px-6 text-center font-bold text-indigo-700">${formatNum(maxCt)}</td>
+                        </tr>
+                    `;
+
+                    // Mostrar las tablas
+                    document.getElementById('resultados').classList.remove('hidden');
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+    </script>
+</body>
+</html>
